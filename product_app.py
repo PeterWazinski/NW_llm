@@ -72,10 +72,15 @@ A Netilion Water application consists of various components that are hierarchica
 - Each application is of type water abstraction, water distribution or effluent discharge. Each application can have one or more modules.
 - Each module is of type outlet, inlet, storage, desinfection, source, transfer or quality control.
 there can be one or more locations.
-- Each module can have one or more instrumentations or instruments (devices) that have one or more measurment values. 
-Each instrument is of type Flow, Pump, Analysis, Pressure or Voltage
+- Each module can have one or more instrumentations or shorthand instruments 
+- An instrument is a measurement device that has one or more measurement time series. 
+each time series is identified by a value key. 
+The name of an instrument is also called a "tag". 
+Each instrument is of type Flow, Pump, Analysis, Pressure or Voltage. 
+Each instrument may has a primary key and an upper and/or lower limit for each value key.
 
 It is important to know what the children of a component are and what are the defined attributes of a component.
+A user will query the system for information about these components and their relationships.
 
 """
 
@@ -95,7 +100,7 @@ def get_water_agent():
 
 # Title on the page
 st.markdown(
-    "<h2 style='text-align: center; color: #4CAF50; font-family: Arial;'>Peter's Netilion Water Assistant💧</h2>",
+    "<h2 style='text-align: center; color: #4CAF50; font-family: Arial;'>💧Peter's Netilion Water Assistant💧</h2>",
     unsafe_allow_html=True,
 )
 
