@@ -1,6 +1,22 @@
+
+
 class Guwahati:
     """
-    Class containing Guwahati water system data as class constants.
+    Class containing Guwahati water system data as class constants and utility methods.
+    
+    This class provides:
+    - nodeinfo: Dictionary containing node hierarchy information
+    - instrumentation_asset_info: Tuple containing instrumentation and asset data
+    - create_hierarchy(): Class method to build a complete nw_hierarchy instance
+    
+    Usage:
+        # Access data directly
+        nodes = Guwahati.nodeinfo
+        inst_info, asset_info = Guwahati.instrumentation_asset_info
+        
+        # Create hierarchy instance
+        hierarchy = Guwahati.create_hierarchy()
+        hierarchy.pprint()
     """
     
     nodeinfo = {97: {'name': 'Nijeshwari PWSS',
@@ -327,4 +343,27 @@ class Guwahati:
    'serial': 'A8741D1DEA0A',
    'product_name': 'n.a.',
    'prod_code': '2404267'}})
+
+    @classmethod
+    def create_hierarchy(cls):
+        """
+        Create and return a complete nw_hierarchy instance from Guwahati data.
+        
+        Returns:
+            nw_hierarchy: A hierarchy object built from Guwahati nodeinfo and instrumentation data
+        """
+        from nwater.nw_hierarchy import nw_hierarchy_from_Guwahati, nw_hierarchy
+        
+        # Get the instrumentation info
+        inst_info, asset_info = cls.instrumentation_asset_info
+        
+        # Create the root node from the data
+        root_node = nw_hierarchy_from_Guwahati(cls.nodeinfo, inst_info)
+        
+        # Return the complete hierarchy
+        return nw_hierarchy(root_node)
+
+
+
+
 
