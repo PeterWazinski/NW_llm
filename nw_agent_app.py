@@ -2,6 +2,35 @@ import streamlit as st
 
 from nw_agent import WaterAgent
 
+# Configure page layout and custom CSS for wider chat
+st.set_page_config(page_title="Netilion Water Assistant", layout="wide")
+
+# Custom CSS to make chat widget wider
+st.markdown("""
+<style>
+    .stChatMessage {
+        max-width: 90% !important;
+    }
+    
+    .stChatInputContainer {
+        max-width: 90% !important;
+    }
+    
+    /* Make the main content area wider */
+    .main .block-container {
+        max-width: 1200px !important;
+        padding-top: 2rem !important;
+        padding-left: 2rem !important;
+        padding-right: 2rem !important;
+    }
+    
+    /* Adjust chat message container width */
+    .stChatMessage > div {
+        max-width: none !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 @st.cache_resource
 def get_water_agent():
     """Get or create the WaterAgent instance"""
@@ -14,13 +43,16 @@ st.markdown(
 )
 
 # Initialize the agent
-water_agent = get_water_agent()
+try:
+    agent = WaterAgent()
+except Exception as e:
+    st.error(f"Error initializing WaterAgent: {e}")
 
-if not water_agent.is_ready():
+if not agent.is_ready():
     st.error("Failed to initialize the agent. Please check if Ollama is running.")
     st.stop()
 
-agent_executor = water_agent.get_executor()
+agent_executor = agent.get_executor()
 
 #Initialize message history in session state
 if "messages" not in st.session_state:

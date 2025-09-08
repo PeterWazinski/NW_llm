@@ -352,16 +352,14 @@ class Guwahati:
         Returns:
             nw_hierarchy: A hierarchy object built from Guwahati nodeinfo and instrumentation data
         """
-        from nwater.nw_hierarchy import nw_hierarchy_from_Guwahati, nw_hierarchy
+        from nwater.nw_hierarchy import nw_hierarchy
         
         # Get the instrumentation info
         inst_info, asset_info = cls.instrumentation_asset_info
         
-        # Create the root node from the data
-        root_node = nw_hierarchy_from_Guwahati(cls.nodeinfo, inst_info)
-        
         # Return the complete hierarchy
-        return nw_hierarchy(root_node)
+        return nw_hierarchy(cls.nodeinfo, inst_info)
+
 
 
 
