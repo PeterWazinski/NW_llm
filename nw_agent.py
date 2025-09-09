@@ -29,7 +29,7 @@ class WaterAgent:
         self.prompt = None
         self.agent_executor = None
         self.memory = None
-        self.start_message = "Hi, I am your personal Netilion Water Assistant! I can give you insights about your plant. How may I help you?"
+        self.start_message = f"Hi, I am your personal Netilion Water Assistant ({self.ollama_model})! I can give you insights about your plant. How may I help you?"
         self.guwahati_hierarchy = Guwahati.create_hierarchy()
         self._initialize_components()
     
