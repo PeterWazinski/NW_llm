@@ -359,10 +359,18 @@ class nw_hierarchy:
 
         # Create nw_instrument instances for each instrumentation
         for inst_id, info in i_info.items():
+
+            thresholds = []
+            for t in info.get('thresholds', []):
+                thresholds.append(dict(name=t.get('name', None),
+                                       key=t.get('key', None),
+                                       type=t.get('threshold_type', None),
+                                       value=t.get('value', None)))
+
             inst = nw_instrument(id=inst_id, name=info['tag'], type=info['type'],
                                 value_keys=info['value_keys'],
                                 primary_val_key=info['specifications'],
-                                thresholds=info['thresholds'])
+                                thresholds=thresholds)
 
             nodes[inst_id] = inst
 

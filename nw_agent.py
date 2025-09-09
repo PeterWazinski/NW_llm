@@ -16,13 +16,18 @@ from Guwahati import Guwahati
 
 class WaterAgent:
     """A class to manage the water assistant agent and its components"""
-    
+    #ollama_model = "qwen2.5:3b-instruct" # Default model name
+    #ollama_model = "qwen2.5:7b"
+    ollama_model = "qwen2.5:7b-instruct-q4_K_M"
+
+
     def __init__(self):
         self.model = None
         self.tools = None
         self.prompt = None
         self.agent_executor = None
         self.memory = None
+        self.start_message = "Hi, I am your personal Netilion Water Assistant! I can give you insights about your plant. How may I help you?"
         self.guwahati_hierarchy = Guwahati.create_hierarchy()
         self._initialize_components()
     
@@ -42,8 +47,8 @@ class WaterAgent:
             ])
             
             # Create model
-            self.model = ChatOllama(model="qwen2.5:3b-instruct", validate_model_on_init=True)
-            
+            self.model = ChatOllama(model = self.ollama_model, validate_model_on_init=True)
+
             # Create memory
             self.memory = ConversationBufferMemory(
                 memory_key="chat_history", 
@@ -369,9 +374,16 @@ Tool call: get_md_summary()
 
 Example 7 - Request for detailed hierarchy view:
 User: "Show me the complete hierarchy structure in a structured format"
-Assistant: I'll get the complete hierarchy in markdown format for better analysis.
+Assistant: I'll get the complete hierarchy for better analysis.
 Tool call: pprint_hierarchy()
 Tool call: get_assets_for_instrument("Borewell level")
+
+
+Example 8 - List all instrumentations that do not have thresholds defined:
+User: "Show me all instrumentations that do not have thresholds defined"
+Assistant: I'll get the complete list of instrumentations. then I can filter them by searching for those with an empty thresholds list.
+Tool call: get_all_instrumentations()
+
 
 
 You should use these tools to answer the user's questions about the water system hierarchy.

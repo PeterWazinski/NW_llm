@@ -57,7 +57,7 @@ agent_executor = agent.get_executor()
 #Initialize message history in session state
 if "messages" not in st.session_state:
     st.session_state.messages = [
-        {"role": "assistant", "content": "Hi, I am your personal Netilion Water Assistant! How may I help you?"}
+        {"role": "assistant", "content": agent.start_message}
     ]
 
 #Display the chat history
