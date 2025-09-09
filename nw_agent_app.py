@@ -1,4 +1,5 @@
 import streamlit as st
+import time
 
 from nw_agent import WaterAgent
 
@@ -76,8 +77,20 @@ if user_input := st.chat_input("What to do next?"):
     with st.chat_message("assistant"):
         try:
             with st.spinner("Thinking..."):
+                # Measure execution time
+                start_time = time.time()
                 response = agent_executor.invoke({"input": user_input})
+                end_time = time.time()
+                execution_time = end_time - start_time
+                
                 out = response["output"]
+                
+                # Print timing information to console
+                print(f"🕐 Agent execution time: {execution_time:.2f} seconds")
+                print(f"📝 Query: {user_input}")
+                print(f"💬 Response length: {len(out)} characters")
+                print("-" * 50)
+                
             st.markdown(out)
             
             # Add assistant response to session state

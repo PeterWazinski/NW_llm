@@ -5,6 +5,8 @@ from langchain.memory import ConversationBufferMemory
 from langchain.agents import AgentExecutor, create_tool_calling_agent
 from langchain_core.prompts import ChatPromptTemplate
 import logging
+import time
+import functools
 
 from Guwahati import Guwahati
 
@@ -76,10 +78,29 @@ class WaterAgent:
         except (ValueError, TypeError):
             return None
 
+    def time_tool_execution(self, func):
+        """Decorator to measure and log tool execution time"""
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            start_time = time.time()
+            try:
+                result = func(*args, **kwargs)
+                end_time = time.time()
+                execution_time = end_time - start_time
+                print(f"🔧 Tool '{func.__name__}' executed in {execution_time:.3f}s")
+                return result
+            except Exception as e:
+                end_time = time.time()
+                execution_time = end_time - start_time
+                print(f"❌ Tool '{func.__name__}' failed after {execution_time:.3f}s: {str(e)}")
+                raise e
+        return wrapper
+
     def create_tools(self):
         """ Return a list of tool functions for the agent to use.  """
         
         @tool
+        @self.time_tool_execution
         def get_all_locations():
             """Get all location nodes in the water system hierarchy.
             
@@ -89,6 +110,7 @@ class WaterAgent:
             return self.guwahati_hierarchy.all_locations
         
         @tool
+        @self.time_tool_execution
         def get_all_applications():
             """Get all application nodes (water_abstraction, water_distribution, effluent_discharge) in the hierarchy.
             
@@ -98,6 +120,7 @@ class WaterAgent:
             return self.guwahati_hierarchy.all_applications
         
         @tool
+        @self.time_tool_execution
         def get_all_modules():
             """Get all module nodes (source_module, storage_module, etc.) in the hierarchy.
             
@@ -107,6 +130,7 @@ class WaterAgent:
             return self.guwahati_hierarchy.all_modules
         
         @tool
+        @self.time_tool_execution
         def get_all_instrumentations():
             """Get all instrumentation/instrument nodes in the hierarchy.
             
@@ -116,6 +140,7 @@ class WaterAgent:
             return self.guwahati_hierarchy.all_instrumentations
         
         @tool
+        @self.time_tool_execution
         def get_all_assets():
             """Get all asset nodes in the hierarchy.
             
@@ -125,6 +150,7 @@ class WaterAgent:
             return self.guwahati_hierarchy.all_assets
         
         @tool
+        @self.time_tool_execution
         def get_assets_for_instrument(inst_id_or_name: str) -> list:
             """Get all asset nodes for a specific instrumentation by ID or name.
             
@@ -156,6 +182,7 @@ class WaterAgent:
                 return f"Error getting assets for instrumentation {inst_id_or_name}: {str(e)}"
 
         @tool
+        @self.time_tool_execution
         def get_applications_for_location(location_id_or_name: str) -> list:
             """Get all application nodes for a specific location by ID or name.
             
@@ -186,6 +213,7 @@ class WaterAgent:
                 return f"Error getting applications for location {location_id_or_name}: {str(e)}"
         
         @tool
+        @self.time_tool_execution
         def get_modules_for_application(application_id_or_name: str) -> list:
             """Get all module nodes for a specific application by ID or name.
             
@@ -217,6 +245,7 @@ class WaterAgent:
                 return f"Error getting modules for application {application_id_or_name}: {str(e)}"
         
         @tool
+        @self.time_tool_execution
         def get_instruments_for_module(module_id_or_name: str):
             """Get all instrumentation nodes for a specific module by ID or name.
             
@@ -248,6 +277,7 @@ class WaterAgent:
                 return f"Error getting instruments for module {module_id_or_name}: {str(e)}"
 
         @tool
+        @self.time_tool_execution
         def pprint_hierarchy():
             """Pretty prints the entire water system hierarchy. returns a formatted string."""
             try:
@@ -256,6 +286,7 @@ class WaterAgent:
                 return f"Error printing hierarchy: {str(e)}"
 
         @tool
+        @self.time_tool_execution
         def pprint_hierarchy_md():
             """Pretty prints the entire water system hierarchy in markdown format for better LLM processing."""
             try:
@@ -264,6 +295,7 @@ class WaterAgent:
                 return f"Error printing markdown hierarchy: {str(e)}"
 
         @tool
+        @self.time_tool_execution
         def get_summary():
             """Get a summary of the hierarchy with node counts in a structured format."""
             try:
@@ -272,6 +304,7 @@ class WaterAgent:
                 return f"Error getting summary: {str(e)}"
 
         @tool
+        @self.time_tool_execution
         def get_md_summary():
             """Get a summary of the hierarchy with node counts in markdown format for better LLM processing."""
             try:
