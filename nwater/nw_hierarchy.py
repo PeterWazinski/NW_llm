@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional
 
 class nw_node(BaseModel):
@@ -8,9 +8,12 @@ class nw_node(BaseModel):
     type: str = ""
     subnodes: list["nw_node"] = Field(default_factory=list)
 
-    def __post_init__(self):
-        if not isinstance(self.id, int) or self.id < 0:
-            raise ValueError("id must be a non-negative integer")
+    @field_validator('id')
+    @classmethod
+    def validate_id(cls, v):
+        if not isinstance(v, int) or v < -1: # -1 is for the artificial root node
+            raise ValueError("id must be -1 or a non-negative integer")
+        return v
         
     def __str__(self):
         return f"({self.id}, '{self.name}', {self.type})"
@@ -169,18 +172,34 @@ class nw_hierarchy:
 
     def get_applications(self, location):
         """Return all nw_node objects with type == 'water_application'."""
+        if not location:
+            raise ValueError("Location cannot be None")
+        if not hasattr(location, 'subnodes'):
+            raise ValueError("Location must have subnodes attribute")
         return location.subnodes
     
     def get_modules(self, water_app):
         """Return all Module objects for WATER APP."""
+        if not water_app:
+            raise ValueError("Water application cannot be None")
+        if not hasattr(water_app, 'subnodes'):
+            raise ValueError("Water application must have subnodes attribute")
         return water_app.subnodes 
     
     def get_instrumentations(self, module):
         """Return all nw_instrumentation objects for a given module."""
+        if not module:
+            raise ValueError("Module cannot be None")
+        if not hasattr(module, 'subnodes'):
+            raise ValueError("Module must have subnodes attribute")
         return module.subnodes
 
     def get_assets(self, instrumentation):
         """Return all nw_asset objects for a given instrumentation."""
+        if not instrumentation:
+            raise ValueError("Instrumentation cannot be None")
+        if not hasattr(instrumentation, 'subnodes'):
+            raise ValueError("Instrumentation must have subnodes attribute")
         return instrumentation.subnodes
 
     def get_asset_by_serial(self, serial):
@@ -189,6 +208,135 @@ class nw_hierarchy:
             if asset.serial == serial:
                 return asset
         return None
+    
+    def get_node_by_id(self, node_id: int):
+        """
+        Fast lookup of any node by ID using the internal nodes dictionary.
+        
+        Args:
+            node_id (int): The ID of the node to find
+            
+        Returns:
+            nw_node or None: The node with the given ID, or None if not found
+        """
+        return self.nodes.get(node_id)
+    
+    def get_nodes_by_name(self, name: str, node_type: str = None):
+        """
+        Find all nodes with a specific name, optionally filtered by type.
+        
+        Args:
+            name (str): The name to search for
+            node_type (str, optional): Filter by node type
+            
+        Returns:
+            list: List of nodes matching the criteria
+        """
+        results = []
+        all_nodes = [*self.all_locations, *self.all_applications, 
+                    *self.all_modules, *self.all_instrumentations, *self.all_assets]
+        
+        for node in all_nodes:
+            if node.name == name:
+                if node_type is None or node.type == node_type:
+                    results.append(node)
+        return results
+    
+    def get_nodes_by_type(self, node_type: str):
+        """
+        Get all nodes of a specific type.
+        
+        Args:
+            node_type (str): The type to filter by
+            
+        Returns:
+            list: List of nodes of the specified type
+        """
+        if node_type == 'location':
+            return self.all_locations
+        elif node_type in self.application_types:
+            return [app for app in self.all_applications if app.type == node_type]
+        elif node_type in self.module_types:
+            return [mod for mod in self.all_modules if mod.type == node_type]
+        else:
+            # Check instrumentations and assets
+            results = []
+            for inst in self.all_instrumentations:
+                if inst.type == node_type:
+                    results.append(inst)
+            for asset in self.all_assets:
+                if asset.type == node_type:
+                    results.append(asset)
+            return results
+    
+    def search_hierarchy(self, search_term: str, case_sensitive: bool = False):
+        """
+        Search for nodes containing a specific term in their name.
+        
+        Args:
+            search_term (str): The term to search for
+            case_sensitive (bool): Whether the search should be case sensitive
+            
+        Returns:
+            dict: Dictionary with node types as keys and matching nodes as values
+        """
+        if not case_sensitive:
+            search_term = search_term.lower()
+        
+        results = {
+            'locations': [],
+            'applications': [],
+            'modules': [],
+            'instrumentations': [],
+            'assets': []
+        }
+        
+        def matches(node_name):
+            name = node_name if case_sensitive else node_name.lower()
+            return search_term in name
+        
+        for location in self.all_locations:
+            if matches(location.name):
+                results['locations'].append(location)
+                
+        for app in self.all_applications:
+            if matches(app.name):
+                results['applications'].append(app)
+                
+        for module in self.all_modules:
+            if matches(module.name):
+                results['modules'].append(module)
+                
+        for inst in self.all_instrumentations:
+            if matches(inst.name):
+                results['instrumentations'].append(inst)
+                
+        for asset in self.all_assets:
+            if matches(asset.name):
+                results['assets'].append(asset)
+                
+        return results
+    
+    def get_instrumentations_without_thresholds(self):
+        """
+        Find all instrumentations that don't have any thresholds defined.
+        
+        Returns:
+            list: List of instrumentations without thresholds
+        """
+        return [inst for inst in self.all_instrumentations if not inst.thresholds]
+    
+    def get_instrumentations_by_value_key(self, value_key: str):
+        """
+        Find all instrumentations that have a specific value key.
+        
+        Args:
+            value_key (str): The value key to search for
+            
+        Returns:
+            list: List of instrumentations with the specified value key
+        """
+        return [inst for inst in self.all_instrumentations if value_key in inst.value_keys]
 
     def pprint(self, show_summary=True):
         """
@@ -233,6 +381,102 @@ class nw_hierarchy:
             
         return "\n".join(lines)
     
+    def get_detailed_statistics(self):
+        """
+        Get detailed statistics about the hierarchy.
+        
+        Returns:
+            dict: Comprehensive statistics about the hierarchy
+        """
+        stats = self.get_node_counts()
+        
+        # Add type-specific statistics
+        instrument_types = {}
+        for inst in self.all_instrumentations:
+            inst_type = inst.type
+            if inst_type not in instrument_types:
+                instrument_types[inst_type] = 0
+            instrument_types[inst_type] += 1
+        
+        application_types = {}
+        for app in self.all_applications:
+            app_type = app.type
+            if app_type not in application_types:
+                application_types[app_type] = 0
+            application_types[app_type] += 1
+        
+        module_types = {}
+        for module in self.all_modules:
+            mod_type = module.type
+            if mod_type not in module_types:
+                module_types[mod_type] = 0
+            module_types[mod_type] += 1
+        
+        # Threshold statistics
+        instruments_with_thresholds = len([inst for inst in self.all_instrumentations if inst.thresholds])
+        instruments_without_thresholds = len(self.all_instrumentations) - instruments_with_thresholds
+        
+        stats.update({
+            'instrument_types': instrument_types,
+            'application_types': application_types,
+            'module_types': module_types,
+            'instruments_with_thresholds': instruments_with_thresholds,
+            'instruments_without_thresholds': instruments_without_thresholds,
+            'threshold_coverage': (instruments_with_thresholds / len(self.all_instrumentations) * 100) if self.all_instrumentations else 0
+        })
+        
+        return stats
+    
+    def print_detailed_statistics(self):
+        """
+        Return a detailed statistics report as a formatted string.
+        
+        Returns:
+            str: Formatted statistics report
+        """
+        stats = self.get_detailed_statistics()
+        lines = []
+        lines.append("=" * 60)
+        lines.append("📊 DETAILED NW HIERARCHY STATISTICS")
+        lines.append("=" * 60)
+        
+        # Basic counts
+        lines.append("📋 COMPONENT COUNTS:")
+        lines.append(f"  🏢 Locations:        {stats['locations']:3d}")
+        lines.append(f"  💧 Applications:     {stats['applications']:3d}")
+        lines.append(f"  📦 Modules:          {stats['modules']:3d}")
+        lines.append(f"  🔧 Instrumentations: {stats['instrumentations']:3d}")
+        lines.append(f"  📦 Assets:           {stats['assets']:3d}")
+        lines.append(f"  📋 Total Nodes:      {stats['total']:3d}")
+        lines.append("")
+        
+        # Instrument types
+        lines.append("🔧 INSTRUMENT TYPES:")
+        for inst_type, count in sorted(stats['instrument_types'].items()):
+            lines.append(f"  {inst_type}: {count}")
+        lines.append("")
+        
+        # Application types  
+        lines.append("💧 APPLICATION TYPES:")
+        for app_type, count in sorted(stats['application_types'].items()):
+            lines.append(f"  {app_type}: {count}")
+        lines.append("")
+        
+        # Module types
+        lines.append("📦 MODULE TYPES:")
+        for mod_type, count in sorted(stats['module_types'].items()):
+            lines.append(f"  {mod_type}: {count}")
+        lines.append("")
+        
+        # Threshold analysis
+        lines.append("🎯 THRESHOLD ANALYSIS:")
+        lines.append(f"  With thresholds:    {stats['instruments_with_thresholds']:3d}")
+        lines.append(f"  Without thresholds: {stats['instruments_without_thresholds']:3d}")
+        lines.append(f"  Coverage:           {stats['threshold_coverage']:5.1f}%")
+        lines.append("=" * 60)
+        
+        return "\n".join(lines)
+
     def _pprint_node(self, node, level=0):
         """
         Recursively format a node and its subnodes with appropriate formatting.

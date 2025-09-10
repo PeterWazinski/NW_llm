@@ -311,6 +311,52 @@ class WaterAgent:
                 return self.guwahati_hierarchy.print_md_summary()
             except Exception as e:
                 return f"Error getting markdown summary: {str(e)}"
+
+        @tool
+        @self.time_tool_execution
+        def search_hierarchy(search_term: str, case_sensitive: bool = False):
+            """Search for nodes containing a specific term in their name.
+            
+            Args:
+                search_term: The term to search for in node names
+                case_sensitive: Whether the search should be case sensitive (default: False)
+            
+            Returns:
+                dict: Dictionary with node types as keys and matching nodes as values
+            """
+            try:
+                return self.guwahati_hierarchy.search_hierarchy(search_term, case_sensitive)
+            except Exception as e:
+                return f"Error searching hierarchy for '{search_term}': {str(e)}"
+
+        @tool
+        @self.time_tool_execution
+        def get_instrumentations_by_value_key(value_key: str):
+            """Find all instrumentations that have a specific value key.
+            
+            Args:
+                value_key: The value key to search for in instrumentations
+            
+            Returns:
+                list: List of instrumentations with the specified value key
+            """
+            try:
+                return self.guwahati_hierarchy.get_instrumentations_by_value_key(value_key)
+            except Exception as e:
+                return f"Error getting instrumentations for value key '{value_key}': {str(e)}"
+
+        @tool
+        @self.time_tool_execution
+        def get_detailed_statistics():
+            """Get detailed statistics about the hierarchy including type distributions and threshold coverage.
+            
+            Returns:
+                dict: Comprehensive statistics about the hierarchy
+            """
+            try:
+                return self.guwahati_hierarchy.get_detailed_statistics()
+            except Exception as e:
+                return f"Error getting detailed statistics: {str(e)}"
             
         return [
                 get_all_locations,  
@@ -325,7 +371,10 @@ class WaterAgent:
                 pprint_hierarchy,
                 pprint_hierarchy_md,
                 get_summary,
-                get_md_summary
+                get_md_summary,
+                search_hierarchy,
+                get_instrumentations_by_value_key,
+                get_detailed_statistics
             ]
 
 
@@ -366,6 +415,11 @@ These tools provide hierarchy summaries and visualization:
 - get_md_summary: Get a markdown-formatted summary with counts (better for structured analysis).
 - pprint_hierarchy: Get a complete hierarchical view of all components with emojis and indentation.
 - pprint_hierarchy_md: Get a complete hierarchical view in markdown format (better for LLM processing).
+
+These tools provide advanced search and analysis capabilities:
+- search_hierarchy: Search for nodes containing a specific term in their name (supports case-sensitive/insensitive search).
+- get_instrumentations_by_value_key: Find all instrumentations that have a specific value key.
+- get_detailed_statistics: Get comprehensive statistics including type distributions and threshold coverage.
 
 When using the tools below, you must provide the ID of the component as a string, e.g. all applications for location with ID "1". All of these tools also accept names instead of IDs:
 - get_assets_for_instrument: Get all asset nodes for a specific instrumentation (accepts ID or name).    
@@ -416,6 +470,26 @@ Example 8 - List all instrumentations that do not have thresholds defined:
 User: "Show me all instrumentations that do not have thresholds defined"
 Assistant: I'll get the complete list of instrumentations. then I can filter them by searching for those with an empty thresholds list.
 Tool call: get_all_instrumentations()
+
+Example 9 - Search for components by name:
+User: "Find all components with 'pump' in their name"
+Assistant: I'll search the hierarchy for components containing 'pump' in their name.
+Tool call: search_hierarchy("pump", False)
+
+Example 10 - Find instrumentations by value key:
+User: "Which instruments measure flow rate?"
+Assistant: I'll find all instrumentations that have 'flow_rate' as a value key.
+Tool call: get_instrumentations_by_value_key("flow_rate")
+
+Example 11 - Get comprehensive statistics:
+User: "Give me detailed statistics about the water system including type distributions"
+Assistant: I'll get comprehensive statistics about the hierarchy.
+Tool call: get_detailed_statistics()
+
+Example 12 - Case-sensitive search:
+User: "Find components with exactly 'Source' (capital S) in their name"
+Assistant: I'll perform a case-sensitive search for 'Source'.
+Tool call: search_hierarchy("Source", True)
 
 
 
