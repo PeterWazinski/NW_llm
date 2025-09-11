@@ -5,7 +5,7 @@ import uuid
 from nw_agent_langgraph import WaterAgentLangGraph
 
 # Configure page layout and custom CSS for wider chat
-st.set_page_config(page_title="Netilion Water Assistant (LangGraph)", layout="wide")
+st.set_page_config(page_title="Netilion Water Assistant (LangGraph Memory)", layout="wide")
 
 # Custom CSS to make chat widget wider
 st.markdown("""
@@ -51,7 +51,7 @@ def get_water_agent():
 
 # Title on the page
 st.markdown(
-    "<h2 style='text-align: center; color: #4CAF50; font-family: Arial;'>💧Peter's Netilion Water Assistant (LangGraph)💧</h2>",
+    "<h2 style='text-align: center; color: #4CAF50; font-family: Arial;'>💧Peter's Netilion Water Assistant (LangGraph Memory)💧</h2>",
     unsafe_allow_html=True,
 )
 
