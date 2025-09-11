@@ -1,11 +1,12 @@
 import streamlit as st
 import time
 import uuid
+import os
 
-from nw_agent_langgraph import WaterAgentLangGraph
+from nw_agent_gemini import WaterAgentGemini
 
 # Configure page layout and custom CSS for wider chat
-st.set_page_config(page_title="Netilion Water Assistant", layout="wide")
+st.set_page_config(page_title="Netilion Water Assistant (Gemini)", layout="wide")
 
 # Custom CSS to make chat widget wider
 st.markdown("""
@@ -51,19 +52,38 @@ def get_water_agent():
 
 # Title on the page
 st.markdown(
-    "<h2 style='text-align: center; color: #4CAF50; font-family: Arial;'>💧Peter's Netilion Water Assistant💧</h2>",
+    "<h2 style='text-align: center; color: #4CAF50; font-family: Arial;'>💧Peter's Netilion Water Assistant (Google Gemini)💧</h2>",
     unsafe_allow_html=True,
 )
 
+# API Key input in sidebar
+st.sidebar.header("🔑 Google Gemini Configuration")
+google_api_key = st.sidebar.text_input(
+    "Google API Key", 
+    type="password", 
+    value=os.getenv("GOOGLE_API_KEY", ""),
+    help="Enter your Google API key or set GOOGLE_API_KEY environment variable"
+)
+
+if not google_api_key:
+    st.warning("⚠️ Please enter your Google API key in the sidebar to use the assistant.")
+    st.info("💡 You can get your API key from: https://makersuite.google.com/app/apikey")
+    st.stop()
+
+@st.cache_resource
+def get_water_agent(api_key):
+    """Get or create the WaterAgentGemini instance"""
+    return WaterAgentGemini(google_api_key=api_key)
+
 # Initialize the agent
 try:
-    agent = get_water_agent()
+    agent = get_water_agent(google_api_key)
 except Exception as e:
-    st.error(f"Error initializing WaterAgentLangGraph: {e}")
+    st.error(f"Error initializing WaterAgentGemini: {e}")
     st.stop()
 
 if not agent.is_ready():
-    st.error("Failed to initialize the agent. Please check if Ollama is running.")
+    st.error("Failed to initialize the agent. Please check your Google API key.")
     st.stop()
 
 # Initialize session state

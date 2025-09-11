@@ -1,5 +1,5 @@
 from langchain.prompts import ChatPromptTemplate
-from langchain_ollama import ChatOllama
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate
 from langgraph.graph import StateGraph, END
 from langgraph.prebuilt import ToolNode
@@ -12,29 +12,29 @@ import os
 from Guwahati import Guwahati
 from nw_water_tools import NWWaterTools
 
-#os.environ['OLLAMA_BASE_URL'] = "https://66e443bc75a2.ngrok-free.app:11434"
-
 # Define the state structure for LangGraph
 class AgentState(TypedDict):
     messages: Annotated[List, "The conversation messages"]
     next: str  # The next step to take
 
-class WaterAgentLangGraph:
-    """A class to manage the water assistant agent using LangGraph with built-in memory"""
-    ollama_model = "qwen2.5:7b-instruct-q4_K_M"
+class WaterAgentGemini:
+    """A class to manage the water assistant agent using LangGraph with Google Gemini"""
+    gemini_model = "gemini-1.5-flash"  # or "gemini-1.5-pro" for more advanced tasks
 
-    def __init__(self, ollama_base_url: str = None):
+    def __init__(self, google_api_key: str = None):
         self.model = None
         self.tools = None
         self.app = None
         
-        # Use provided URL, environment variable, or default to None (local server)
-        self.ollama_base_url = ollama_base_url or os.getenv('OLLAMA_BASE_URL')
-        if self.ollama_base_url:
-            print(f"🌐 Using Ollama server at: {self.ollama_base_url}")
+        # Use provided API key or environment variable
+        self.google_api_key = google_api_key or os.getenv('GOOGLE_API_KEY')
+        if not self.google_api_key:
+            raise ValueError("Google API key is required. Set GOOGLE_API_KEY environment variable or pass it as parameter.")
+        
+        print(f"🔑 Using Google Gemini API with model: {self.gemini_model}")
 
         self.memory = MemorySaver()  # LangGraph's memory saver
-        self.start_message = f"Hi, I am your personal Netilion Water Assistant ({self.ollama_model})! I can give you insights about your plant. How may I help you?"
+        self.start_message = f"Hi, I am your personal Netilion Water Assistant powered by Google {self.gemini_model}! I can give you insights about your plant. How may I help you?"
         self.guwahati_hierarchy = Guwahati.create_hierarchy()
         self.water_tools = NWWaterTools(self.guwahati_hierarchy)
         self._initialize_components()
@@ -46,15 +46,13 @@ class WaterAgentLangGraph:
         try:
             self.tools = self.water_tools.create_tools()
             
-            # Initialize ChatOllama with custom base_url if provided
-            if self.ollama_base_url:
-                self.model = ChatOllama(
-                    model=self.ollama_model, 
-                    base_url=self.ollama_base_url,
-                    validate_model_on_init=True
-                )
-            else:
-                self.model = ChatOllama(model=self.ollama_model, validate_model_on_init=True)
+            # Initialize ChatGoogleGenerativeAI with API key
+            self.model = ChatGoogleGenerativeAI(
+                model=self.gemini_model,
+                google_api_key=self.google_api_key,
+                temperature=0.1,  # Lower temperature for more consistent responses
+                convert_system_message_to_human=True  # Gemini doesn't support system messages natively
+            )
             
             # Bind tools to the model
             self.model_with_tools = self.model.bind_tools(self.tools)
