@@ -167,8 +167,7 @@ def log_execution_info(user_input, execution_time, tools_called, response_length
     """Log execution information to console"""
     print(f"🕐 LangGraph Agent execution time: {execution_time:.2f} seconds")
     print(f"📝 Query: {user_input}")
-    print(f"� Current Model: {st.session_state.selected_model}")
-    print(f"�🧠 Thread ID: {st.session_state.thread_id}")
+    print(f"🧠 Current Model: {st.session_state.selected_model}")
     print(f"💬 Response length: {response_length} characters")
     print(f"🔧 Tools called: {tools_called}")
     print("-" * 50)
