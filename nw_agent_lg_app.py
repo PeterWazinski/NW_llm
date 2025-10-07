@@ -187,6 +187,7 @@ def display_execution_footer(execution_time, tools_called):
         # Create footer message
         footer_message = f"""
 <div style='font-size: 0.85em; color: #666; background-color: #f8f9fa; padding: 8px; border-radius: 5px; margin-top: 10px;'>
+    🤖 <strong>Model:</strong> {st.session_state.selected_model}<br>
     ⏱️ <strong>Execution time:</strong> {execution_time:.2f} seconds<br>
     {tools_info}
 </div>
