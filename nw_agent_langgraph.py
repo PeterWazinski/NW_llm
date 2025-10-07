@@ -29,19 +29,17 @@ class WaterAgentLangGraph:
     remote_ollama_model = "llama3.1:8b"  # Remote model
     remote_ollama_base_url = "http://10.58.145.210:11434"  # Remote server URL
 
-    def __init__(self, ollama_base_url: str = None):
+    def __init__(self, ollama_base_url: str = None, llm_model: str = "qwen2.5:7b-instruct-q4_K_M"):
         self.model = None
         self.tools = None
         self.app = None
         
-        # Determine which model and server to use based on configuration
+        # Determine which server to use based on configuration
         if self.run_ollama_locally:
-            self.current_model = self.local_ollama_model
             # Use provided URL, environment variable, or default to None (local server)
             self.ollama_base_url = None  # Force local for local mode
             self.server_type = "local"
         else:
-            self.current_model = self.remote_ollama_model
             # Use provided URL, environment variable, or default remote URL
             self.ollama_base_url = ollama_base_url or os.getenv('OLLAMA_BASE_URL') or self.remote_ollama_base_url
             self.server_type = "remote"
@@ -50,15 +48,62 @@ class WaterAgentLangGraph:
             print(f"🌐 Using Ollama server at: {self.ollama_base_url}")
         else:
             print(f"🏠 Using local Ollama server")
+            
+        # Validate that the requested model is available
+        available_models = self.available_llms()
+        if llm_model not in available_models:
+            available_model_list = ", ".join(available_models)
+            raise ValueError(f"Model '{llm_model}' is not available on the Ollama server. Available models: {available_model_list}")
+            
+        self.current_model = llm_model
+        print(f"🤖 Using model: {self.current_model}")
 
         self.memory = MemorySaver()  # LangGraph's memory saver
         self.start_message = f"Hi, I am your personal Netilion Water Assistant ({self.current_model} on {self.server_type} server)! I can give you insights about your plant. How may I help you?"
         self.guwahati_hierarchy = Guwahati.create_hierarchy()
         self.water_tools = NWWaterTools(self.guwahati_hierarchy)
         self._initialize_components()
-
-        
     
+    def available_llms(self) -> list:
+        """Get a list of available LLM models from the Ollama server"""
+        import requests
+        
+        try:
+            if self.ollama_base_url:
+                # Remote server
+                url = f"{self.ollama_base_url}/api/tags"
+            else:
+                # Local server
+                url = "http://localhost:11434/api/tags"
+                
+            response = requests.get(url, timeout=10)
+            response.raise_for_status()
+            
+            data = response.json()
+            models = [model['name'] for model in data.get('models', [])]
+            
+            # Sort models alphabetically
+            models.sort()
+            
+            print(f"📦 Found {len(models)} available models: {', '.join(models)}")
+            return models
+            
+        except requests.exceptions.RequestException as e:
+            print(f"❌ Error connecting to Ollama server: {e}")
+            # Return fallback models based on configuration
+            if self.run_ollama_locally:
+                return [self.local_ollama_model]
+            else:
+                return [self.remote_ollama_model]
+        except Exception as e:
+            print(f"❌ Unexpected error querying available models: {e}")
+            # Return fallback models based on configuration
+            if self.run_ollama_locally:
+                return [self.local_ollama_model]
+            else:
+                return [self.remote_ollama_model]
+       
+
     def _initialize_components(self):
         """Initialize all agent components with LangGraph"""
         try:
