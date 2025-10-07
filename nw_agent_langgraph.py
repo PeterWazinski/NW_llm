@@ -21,20 +21,38 @@ class AgentState(TypedDict):
 
 class WaterAgentLangGraph:
     """A class to manage the water assistant agent using LangGraph with built-in memory"""
-    ollama_model = "qwen2.5:7b-instruct-q4_K_M"
+    # Configuration flags
+    run_ollama_locally = False  # Set to True for local, False for remote server
+    
+    # Model configurations
+    local_ollama_model = "qwen2.5:7b-instruct-q4_K_M"  # Local model
+    remote_ollama_model = "llama3.1:8b"  # Remote model
+    remote_ollama_base_url = "http://10.58.145.210:11434"  # Remote server URL
 
     def __init__(self, ollama_base_url: str = None):
         self.model = None
         self.tools = None
         self.app = None
         
-        # Use provided URL, environment variable, or default to None (local server)
-        self.ollama_base_url = ollama_base_url or os.getenv('OLLAMA_BASE_URL')
+        # Determine which model and server to use based on configuration
+        if self.run_ollama_locally:
+            self.current_model = self.local_ollama_model
+            # Use provided URL, environment variable, or default to None (local server)
+            self.ollama_base_url = None  # Force local for local mode
+            self.server_type = "local"
+        else:
+            self.current_model = self.remote_ollama_model
+            # Use provided URL, environment variable, or default remote URL
+            self.ollama_base_url = ollama_base_url or os.getenv('OLLAMA_BASE_URL') or self.remote_ollama_base_url
+            self.server_type = "remote"
+            
         if self.ollama_base_url:
             print(f"🌐 Using Ollama server at: {self.ollama_base_url}")
+        else:
+            print(f"🏠 Using local Ollama server")
 
         self.memory = MemorySaver()  # LangGraph's memory saver
-        self.start_message = f"Hi, I am your personal Netilion Water Assistant ({self.ollama_model})! I can give you insights about your plant. How may I help you?"
+        self.start_message = f"Hi, I am your personal Netilion Water Assistant ({self.current_model} on {self.server_type} server)! I can give you insights about your plant. How may I help you?"
         self.guwahati_hierarchy = Guwahati.create_hierarchy()
         self.water_tools = NWWaterTools(self.guwahati_hierarchy)
         self._initialize_components()
@@ -46,15 +64,20 @@ class WaterAgentLangGraph:
         try:
             self.tools = self.water_tools.create_tools()
             
-            # Initialize ChatOllama with custom base_url if provided
-            if self.ollama_base_url:
+            # Initialize ChatOllama with appropriate configuration
+            if self.run_ollama_locally:
+                # Local Ollama server (default configuration)
                 self.model = ChatOllama(
-                    model=self.ollama_model, 
-                    base_url=self.ollama_base_url,
+                    model=self.current_model, 
                     validate_model_on_init=True
                 )
             else:
-                self.model = ChatOllama(model=self.ollama_model, validate_model_on_init=True)
+                # Remote Ollama server
+                self.model = ChatOllama(
+                    model=self.current_model, 
+                    base_url=self.ollama_base_url,
+                    validate_model_on_init=True
+                )
             
             # Bind tools to the model
             self.model_with_tools = self.model.bind_tools(self.tools)

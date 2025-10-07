@@ -18,18 +18,32 @@ from Guwahati import Guwahati
 
 class WaterAgent:
     """A class to manage the water assistant agent and its components"""
-    #ollama_model = "qwen2.5:3b-instruct" # Default model name
-    #ollama_model = "qwen2.5:7b"
-    ollama_model = "qwen2.5:7b-instruct-q4_K_M"
-
-
+    # Configuration flags
+    run_ollama_locally = False  # Set to True for local, False for remote server
+    
+    # Model configurations
+    local_ollama_model = "qwen2.5:7b-instruct-q4_K_M"  # Local model
+    remote_ollama_model = "llama3.1:8b"  # Remote model
+    remote_ollama_base_url = "http://10.58.145.210:11434"  # Remote server URL
+    
     def __init__(self):
         self.model = None
         self.tools = None
         self.prompt = None
         self.agent_executor = None
         self.memory = None
-        self.start_message = f"Hi, I am your personal Netilion Water Assistant ({self.ollama_model})! I can give you insights about your plant. How may I help you?"
+        
+        # Determine which model and server to use
+        if self.run_ollama_locally:
+            self.current_model = self.local_ollama_model
+            self.current_base_url = None  # Use default local Ollama
+            self.server_type = "local"
+        else:
+            self.current_model = self.remote_ollama_model
+            self.current_base_url = self.remote_ollama_base_url
+            self.server_type = "remote"
+            
+        self.start_message = f"Hi, I am your personal Netilion Water Assistant ({self.current_model} on {self.server_type} server)! I can give you insights about your plant. How may I help you?"
         self.guwahati_hierarchy = Guwahati.create_hierarchy()
         self._initialize_components()
     
@@ -48,8 +62,20 @@ class WaterAgent:
                 ("placeholder", "{agent_scratchpad}")
             ])
             
-            # Create model
-            self.model = ChatOllama(model = self.ollama_model, validate_model_on_init=True)
+            # Create model with appropriate configuration
+            if self.run_ollama_locally:
+                # Local Ollama server (default configuration)
+                self.model = ChatOllama(
+                    model=self.current_model, 
+                    validate_model_on_init=True
+                )
+            else:
+                # Remote Ollama server
+                self.model = ChatOllama(
+                    model=self.current_model,
+                    base_url=self.current_base_url,
+                    validate_model_on_init=True
+                )
 
             # Create memory
             self.memory = ConversationBufferMemory(
