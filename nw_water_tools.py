@@ -411,6 +411,18 @@ class NWWaterTools:
             filter_instrumentations_by_criteria
         ]
 
+# Try: 
+# "Which pump instruments are in the Storage module and don't have thresholds defined?"
+# "First get all level instruments, then tell me which ones are in the Source module"
+# "Analyze the flow instruments and tell me how many have upper thresholds vs lower thresholds"
+# "Find pressure instruments that measure 'pressure_bar' and summarize their threshold settings"
+
+# LangChain Tricks Applied:
+# Tool Description Enhancement: More detailed docstrings guide the LLM's behavior
+# System Prompt Engineering: Explicit instructions for result processing
+# Chain-of-Thought Integration: Structured reasoning approach
+# Result Post-Processing Tool: Dedicated filtering capability
+
     def get_system_prompt(self):
         """Get the comprehensive system prompt for the water assistant"""
         return """
