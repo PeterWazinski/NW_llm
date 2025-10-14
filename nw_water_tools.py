@@ -302,14 +302,14 @@ class NWWaterTools:
         @tool
         @self.time_tool_execution
         def get_instrumentations_by_type(instrument_type: str):
-            """Find all instrumentations of a specific type.
+            """Find all instrumentations of a specific type. IMPORTANT: After getting results, analyze and filter them based on the user's specific question.
             
             Args:
                 instrument_type: The instrument type to search for (case-insensitive).
                                Valid types: flow, pump, analysis, pressure, voltage, level, power, control_valve, controller
             
             Returns:
-                list: List of instrumentations with the specified type
+                list: List of instrumentations with the specified type. YOU MUST analyze these results and present only the relevant information that answers the user's specific question, not the entire list.
             
             Raises:
                 ValueError: If the specified type is not a valid instrument type
@@ -332,6 +332,64 @@ class NWWaterTools:
             except Exception as e:
                 return f"Error getting detailed statistics: {str(e)}"
 
+        @tool
+        @self.time_tool_execution
+        def filter_instrumentations_by_criteria(criteria_description: str):
+            """Filter all instrumentations based on specific criteria described in natural language.
+            Use this tool when you need to find specific instrumentations that match certain conditions.
+            
+            Args:
+                criteria_description: Natural language description of what to filter for 
+                                    (e.g., "instruments without thresholds", "flow instruments with high values", 
+                                     "pumps in the Source module", "instruments with specific value keys")
+            
+            Returns:
+                list: Filtered list of instrumentations that match the criteria
+            """
+            try:
+                all_instruments = self.nw_hierarchy.all_instrumentations
+                
+                # Convert criteria to lowercase for matching
+                criteria_lower = criteria_description.lower()
+                filtered_results = []
+                
+                for instrument in all_instruments:
+                    # Check for common filter criteria
+                    if "without threshold" in criteria_lower or "no threshold" in criteria_lower:
+                        if not instrument.get('thresholds') or len(instrument.get('thresholds', [])) == 0:
+                            filtered_results.append(instrument)
+                    
+                    elif "with threshold" in criteria_lower or "has threshold" in criteria_lower:
+                        if instrument.get('thresholds') and len(instrument.get('thresholds', [])) > 0:
+                            filtered_results.append(instrument)
+                    
+                    elif "type" in criteria_lower:
+                        # Extract type from criteria
+                        instrument_type = instrument.get('type', '').lower()
+                        if instrument_type in criteria_lower:
+                            filtered_results.append(instrument)
+                    
+                    elif "value_key" in criteria_lower or "value key" in criteria_lower:
+                        # Check if instrument has specific value keys
+                        value_keys = instrument.get('value_keys', [])
+                        for key in value_keys:
+                            if key.lower() in criteria_lower:
+                                filtered_results.append(instrument)
+                                break
+                    
+                    elif "name" in criteria_lower:
+                        # Check if name contains specific terms
+                        instrument_name = instrument.get('name', '').lower()
+                        # Extract terms from criteria (simple approach)
+                        terms = [word for word in criteria_lower.split() if word not in ['name', 'with', 'contains', 'having']]
+                        if any(term in instrument_name for term in terms):
+                            filtered_results.append(instrument)
+                
+                return filtered_results if filtered_results else all_instruments
+                
+            except Exception as e:
+                return f"Error filtering instrumentations by criteria '{criteria_description}': {str(e)}"
+
         return [
             get_all_locations,
             get_all_applications, 
@@ -349,7 +407,8 @@ class NWWaterTools:
             search_hierarchy,
             get_instrumentations_by_value_key,
             get_instrumentations_by_type,
-            get_detailed_statistics
+            get_detailed_statistics,
+            filter_instrumentations_by_criteria
         ]
 
     def get_system_prompt(self):
@@ -361,6 +420,22 @@ You answer precisely and concisely based on the provided tools and hierarchy inf
 You should use these tools to answer the user's questions about the water system hierarchy.
 When giving answers, refer to components by their ID and name and type
 If you don't know the answer, just say you don't know. Do not try to make up an answer.
+
+CRITICAL INSTRUCTION FOR PROCESSING TOOL RESULTS:
+When tools return lists or large datasets, you MUST analyze and filter the results to answer the user's specific question. 
+DO NOT simply return the entire list. Instead:
+1. Understand what the user is specifically asking for
+2. Analyze the tool results to identify relevant items
+3. Present only the items that directly answer the user's question
+4. Summarize and format the results in a clear, organized manner
+5. If the list is long, consider grouping, categorizing, or highlighting the most relevant items
+
+ADVANCED FILTERING STRATEGIES:
+- Use filter_instrumentations_by_criteria for complex filtering needs
+- When user asks for "X in Y", first get X, then analyze which ones are in Y
+- For questions about specific attributes (thresholds, value_keys), examine each item's properties
+- Count and summarize results: "Found 5 out of 20 instruments that match your criteria"
+- Use multiple tool calls if needed: get raw data first, then process it based on user's specific needs
 
 A customer runs a Netilion water plant application which consists of various components that are hierarchically ordered:
 - each component has a unique ID, a name and a type
@@ -400,6 +475,21 @@ These tools provide advanced search and analysis capabilities:
 - search_hierarchy: Search for nodes containing a specific term in their name (supports case-sensitive/insensitive search).
 - get_instrumentations_by_value_key: Find all instrumentations that have a specific value key.
 - get_instrumentations_by_type: Find all instrumentations of a specific type (flow, pump, analysis, pressure, voltage, level, power, control_valve, controller).
+- filter_instrumentations_by_criteria: Filter instrumentations using natural language criteria for complex filtering needs.
+
+REASONING APPROACH FOR COMPLEX QUERIES:
+When processing user requests, follow this pattern:
+1. **Break down the question**: Identify what data you need and what filters to apply
+2. **Plan your tool usage**: Decide which tools to call and in what order
+3. **Execute and analyze**: Call tools and examine results carefully
+4. **Filter and present**: Extract only relevant information and present it clearly
+
+Example reasoning process:
+User asks: "Which pump instruments in the Storage module don't have thresholds?"
+Step 1: I need pump instruments + check module location + check threshold status
+Step 2: Use get_instrumentations_by_type("pump") first
+Step 3: Analyze results to find which are in Storage module and lack thresholds
+Step 4: Present only those specific instruments with clear summary
 
 When using the tools below, you must provide the ID of the component as a string, e.g. all applications for location with ID "1". 
 All these tools also accept names instead of IDs:
@@ -474,6 +564,25 @@ Example 13 - Case-sensitive search:
 User: "Find components with exactly 'Source' (capital S) in their name"
 Assistant: I'll perform a case-sensitive search for 'Source'.
 Tool call: search_hierarchy("Source", True)
+
+Example 14 - Filtering results intelligently:
+User: "Show me only the pump instruments that don't have thresholds defined"
+Assistant: I'll use the filter tool to find pump instruments without thresholds.
+Tool call: filter_instrumentations_by_criteria("pump instruments without thresholds")
+
+Example 15 - Analyzing tool results properly:
+User: "Which level instruments are in the Source module?"
+Assistant: I'll first get all level instruments, then analyze which ones are in the Source module.
+Tool call 1: get_instrumentations_by_type("level")
+[After getting results, I'll analyze them to identify which ones belong to the Source module and present only those relevant instruments]
+
+IMPORTANT RESULT PROCESSING RULES:
+- When you get a list from a tool, analyze it to extract only what the user asked for
+- If user asks for "instruments in module X", filter the results to show only those in module X
+- If user asks for specific characteristics (e.g., "without thresholds"), highlight only those items
+- Summarize large result sets meaningfully rather than dumping all data
+- Group related items together when presenting results
+- Always provide context about what you found (e.g., "Found 3 out of 15 pump instruments that match your criteria")
 
 
 """
