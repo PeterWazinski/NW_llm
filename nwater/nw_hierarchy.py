@@ -74,6 +74,7 @@ class nw_hierarchy:
     
     application_types = ['water_abstraction', 'water_distribution', 'effluent_discharge']
     module_types = ['source_module', 'disinfection_module', 'storage_module', 'outlet_module', "inlet_module", "transfer_module","quality_control_module"]
+    instrument_types = ['flow', 'pump', 'analysis', 'pressure', 'voltage', 'level', 'power', 'control_valve', 'controller']
 
     def __init__(self, node_info, instrumentation_info):
         self.nodes = {} # to be set by nw_hierarchy_from_node_instrumentation
@@ -337,6 +338,30 @@ class nw_hierarchy:
             list: List of instrumentations with the specified value key
         """
         return [inst for inst in self.all_instrumentations if value_key in inst.value_keys]
+    
+    def get_instrumentations_by_type(self, instrument_type: str):
+        """
+        Find all instrumentations of a specific type.
+        
+        Args:
+            instrument_type (str): The instrument type to search for (case-insensitive)
+            
+        Returns:
+            list: List of instrumentations with the specified type
+            
+        Raises:
+            ValueError: If the specified type is not a valid instrument type
+        """
+        # Convert to lowercase for case-insensitive comparison
+        instrument_type_lower = instrument_type.lower()
+        
+        # Validate that the type exists in our valid instrument types
+        if instrument_type_lower not in self.instrument_types:
+            valid_types = ', '.join(self.instrument_types)
+            raise ValueError(f"Invalid instrument type '{instrument_type}'. Valid types are: {valid_types}")
+        
+        # Find all instrumentations matching the type (case-insensitive)
+        return [inst for inst in self.all_instrumentations if inst.type.lower() == instrument_type_lower]
 
     def pprint(self, show_summary=True):
         """

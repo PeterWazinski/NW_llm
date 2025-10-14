@@ -12,7 +12,8 @@ import os
 from Guwahati import Guwahati
 from nw_water_tools import NWWaterTools
 
-#os.environ['OLLAMA_BASE_URL'] = "https://66e443bc75a2.ngrok-free.app:11434"
+# "C:\Users\i09300076\OneDrive - Endress+Hauser\DEV\Python3-heroku\NW_llm\ollama_env\Scripts\activate.bat"
+# streamlit run nw_agent_lg_app.py   
 
 # Define the state structure for LangGraph
 class AgentState(TypedDict):
@@ -21,18 +22,22 @@ class AgentState(TypedDict):
 
 class WaterAgentLangGraph:
     """A class to manage the water assistant agent using LangGraph with built-in memory"""
-    # Configuration flags
-    run_ollama_locally = False  # Set to True for local, False for remote server
+    # Configuration flags (can be overridden at runtime)
+    run_ollama_locally = True  # Set to True for local, False for remote server
     
     # Model configurations
     local_ollama_model = "qwen2.5:7b-instruct-q4_K_M"  # Local model
     remote_ollama_model = "llama3.1:8b"  # Remote model
     remote_ollama_base_url = "http://10.58.145.210:11434"  # Remote server URL
 
-    def __init__(self, ollama_base_url: str = None, llm_model: str = "qwen2.5:7b-instruct-q4_K_M"):
+    def __init__(self, ollama_base_url: str = None, llm_model: str = "qwen2.5:7b-instruct-q4_K_M", run_locally: bool = None):
         self.model = None
         self.tools = None
         self.app = None
+        
+        # Allow runtime override of the class variable
+        if run_locally is not None:
+            self.run_ollama_locally = run_locally
         
         # Determine which server to use based on configuration
         if self.run_ollama_locally:
@@ -59,7 +64,7 @@ class WaterAgentLangGraph:
         print(f"🤖 Using model: {self.current_model}")
 
         self.memory = MemorySaver()  # LangGraph's memory saver
-        self.start_message = f"Hi, I am your personal Netilion Water Assistant ({self.current_model} on {self.server_type} server)! I can give you insights about your plant. How may I help you?"
+        self.start_message = f"Hi, I am your personal Netilion Water Assistant running on the {self.current_model} language model! I can give you insights about your plant. How may I help you?"
         self.guwahati_hierarchy = Guwahati.create_hierarchy()
         self.water_tools = NWWaterTools(self.guwahati_hierarchy)
         self._initialize_components()
@@ -102,7 +107,6 @@ class WaterAgentLangGraph:
                 return [self.local_ollama_model]
             else:
                 return [self.remote_ollama_model]
-       
 
     def _initialize_components(self):
         """Initialize all agent components with LangGraph"""
@@ -123,6 +127,8 @@ class WaterAgentLangGraph:
                     base_url=self.ollama_base_url,
                     validate_model_on_init=True
                 )
+
+
             
             # Bind tools to the model
             self.model_with_tools = self.model.bind_tools(self.tools)
@@ -133,7 +139,8 @@ class WaterAgentLangGraph:
         except Exception as e:
             self.app = None
             raise e
-    
+
+
     def _create_langgraph_workflow(self):
         """Create the LangGraph workflow with state management"""
         

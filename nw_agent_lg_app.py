@@ -1,6 +1,8 @@
 import streamlit as st
 import time
 import uuid
+import sys
+import argparse
 
 from nw_agent_langgraph import WaterAgentLangGraph
 
@@ -44,25 +46,62 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+def parse_command_line_args():
+    """Parse command line arguments for Ollama configuration"""
+    # Create a new parser for our specific arguments
+    parser = argparse.ArgumentParser(description='Netilion Water Assistant', add_help=False)
+    parser.add_argument('--local', action='store_true', help='Use local Ollama server')
+    parser.add_argument('--remote', action='store_true', help='Use remote Ollama server')
+    parser.add_argument('--ollama-url', type=str, help='Custom Ollama server URL')
+    parser.add_argument('--model', type=str, default="qwen2.5:7b-instruct-q4_K_M", help='LLM model to use')
+    
+    # Parse only known args to avoid conflicts with Streamlit's args
+    args, unknown = parser.parse_known_args()
+    
+    # Determine run_locally setting
+    run_locally = None
+    if args.local and args.remote:
+        st.error("Cannot specify both --local and --remote flags")
+        st.stop()
+    elif args.local:
+        run_locally = True
+    elif args.remote:
+        run_locally = False
+    
+    return {
+        'run_locally': run_locally,
+        'ollama_url': args.ollama_url,
+        'model': args.model
+    }
+
 @st.cache_resource
-def get_water_agent(llm_model: str = "qwen2.5:7b-instruct-q4_K_M"):
-    """Get or create the WaterAgentLangGraph instance with specified model"""
-    return WaterAgentLangGraph(llm_model=llm_model)
+def get_water_agent(llm_model: str = "qwen2.5:7b-instruct-q4_K_M", run_locally: bool = None, ollama_url: str = None):
+    """Get or create the WaterAgentLangGraph instance with specified configuration"""
+    return WaterAgentLangGraph(llm_model=llm_model, run_locally=run_locally, ollama_base_url=ollama_url)
 
 def init_app():
     """Initialize the Streamlit app with title, agent, and session state"""
     
+    # Use global command line arguments
+    cmd_args = CMD_LINE_ARGS
+    
     # Title on the page
+    server_info = "🏠 Local" if cmd_args['run_locally'] else "🌐 Remote" if cmd_args['run_locally'] is False else "⚙️ Auto"
     st.markdown(
-        "<h2 style='text-align: center; color: #4CAF50; font-family: Arial;'>💧Peter's Netilion Water Assistant💧</h2>",
+        f"<h2 style='text-align: center; color: #4CAF50; font-family: Arial;'>💧Peter's Netilion Water Assistant💧</h2>",
         unsafe_allow_html=True,
     )
+    st.markdown(f"<p style='text-align: center; color: #666;'>Ollama Server: {server_info}</p>", unsafe_allow_html=True)
 
-    # Initialize the agent with selected model
+    # Initialize the agent with command line configuration
     try:
-        # Use selected model from session state if available
-        model_to_use = st.session_state.get('selected_model', 'qwen2.5:7b-instruct-q4_K_M')
-        agent = get_water_agent(llm_model=model_to_use)
+        # Use command line model or fallback to session state
+        model_to_use = cmd_args['model'] if cmd_args['model'] != "qwen2.5:7b-instruct-q4_K_M" else st.session_state.get('selected_model', cmd_args['model'])
+        agent = get_water_agent(
+            llm_model=model_to_use,
+            run_locally=cmd_args['run_locally'],
+            ollama_url=cmd_args['ollama_url']
+        )
     except Exception as e:
         st.error(f"Error initializing WaterAgentLangGraph: {e}")
         st.stop()
@@ -125,8 +164,14 @@ def render_llm_selection_section(agent):
             # Show loading message
             with st.spinner(f"Loading model {selected_model}..."):
                 try:
-                    # Create new agent with selected model
-                    new_agent = get_water_agent(llm_model=selected_model)
+                    # Use global command line args for new agent
+                    cmd_args = CMD_LINE_ARGS
+                    # Create new agent with selected model and command line config
+                    new_agent = get_water_agent(
+                        llm_model=selected_model,
+                        run_locally=cmd_args['run_locally'],
+                        ollama_url=cmd_args['ollama_url']
+                    )
                     
                     # Update session state
                     st.session_state.thread_id = str(uuid.uuid4())
@@ -143,13 +188,12 @@ def render_llm_selection_section(agent):
                     st.session_state.selected_model = agent.current_model
         
         # Display current model info
-        st.markdown(f"**Current Model:** `{st.session_state.selected_model}`")
+        #st.markdown(f"**Current Model:** `{st.session_state.selected_model}`")
         
     except Exception as e:
         st.error(f"Error loading available models: {e}")
         st.markdown(f"**Current Model:** `{agent.current_model if hasattr(agent, 'current_model') else 'Unknown'}`")
     
-    st.markdown(f"**Current Thread:** `{st.session_state.thread_id[:8]}...`")
 
 def render_sidebar(agent):
     """Render the complete sidebar with all sections"""
@@ -246,6 +290,9 @@ def handle_chat_input(agent):
                 st.session_state.messages.append({"role": "assistant", "content": error_msg})
 
 
+
+# Parse command line arguments globally
+CMD_LINE_ARGS = parse_command_line_args()
 
 # Initialize the app and get the agent
 agent = init_app()

@@ -301,6 +301,26 @@ class NWWaterTools:
 
         @tool
         @self.time_tool_execution
+        def get_instrumentations_by_type(instrument_type: str):
+            """Find all instrumentations of a specific type.
+            
+            Args:
+                instrument_type: The instrument type to search for (case-insensitive).
+                               Valid types: flow, pump, analysis, pressure, voltage, level, power, control_valve, controller
+            
+            Returns:
+                list: List of instrumentations with the specified type
+            
+            Raises:
+                ValueError: If the specified type is not a valid instrument type
+            """
+            try:
+                return self.nw_hierarchy.get_instrumentations_by_type(instrument_type)
+            except Exception as e:
+                return f"Error getting instrumentations for type '{instrument_type}': {str(e)}"
+
+        @tool
+        @self.time_tool_execution
         def get_detailed_statistics():
             """Get detailed statistics about the hierarchy including type distributions and threshold coverage.
             
@@ -328,6 +348,7 @@ class NWWaterTools:
             get_md_summary,
             search_hierarchy,
             get_instrumentations_by_value_key,
+            get_instrumentations_by_type,
             get_detailed_statistics
         ]
 
@@ -336,6 +357,11 @@ class NWWaterTools:
         return """
 Context:
 You are an Assistant that helps the user to analyze a customer's Netilion Water software application. 
+You answer precisely and concisely based on the provided tools and hierarchy information. 
+You should use these tools to answer the user's questions about the water system hierarchy.
+When giving answers, refer to components by their ID and name and type
+If you don't know the answer, just say you don't know. Do not try to make up an answer.
+
 A customer runs a Netilion water plant application which consists of various components that are hierarchically ordered:
 - each component has a unique ID, a name and a type
 - locations are the highest level of the hierarchy. there is only one type "location". they have one or more children called applications.
@@ -368,13 +394,15 @@ These tools provide hierarchy summaries and visualization:
 - get_md_summary: Get a markdown-formatted summary with counts (better for structured analysis).
 - pprint_hierarchy: Get a complete hierarchical view of all components with emojis and indentation.
 - pprint_hierarchy_md: Get a complete hierarchical view in markdown format (better for LLM processing).
+- get_detailed_statistics: Get comprehensive statistics including type distributions and threshold coverage.
 
 These tools provide advanced search and analysis capabilities:
 - search_hierarchy: Search for nodes containing a specific term in their name (supports case-sensitive/insensitive search).
 - get_instrumentations_by_value_key: Find all instrumentations that have a specific value key.
-- get_detailed_statistics: Get comprehensive statistics including type distributions and threshold coverage.
+- get_instrumentations_by_type: Find all instrumentations of a specific type (flow, pump, analysis, pressure, voltage, level, power, control_valve, controller).
 
-When using the tools below, you must provide the ID of the component as a string, e.g. all applications for location with ID "1". All of these tools also accept names instead of IDs:
+When using the tools below, you must provide the ID of the component as a string, e.g. all applications for location with ID "1". 
+All these tools also accept names instead of IDs:
 - get_assets_for_instrument: Get all asset nodes for a specific instrumentation (accepts ID or name).    
 - get_applications_for_location: Get all application nodes for a specific location (accepts ID or name).
 - get_modules_for_application: Get all module nodes for a specific application (accepts ID or name).
@@ -432,18 +460,20 @@ User: "Which instruments measure flow rate?"
 Assistant: I'll find all instrumentations that have 'flow_rate' as a value key.
 Tool call: get_instrumentations_by_value_key("flow_rate")
 
-Example 11 - Get comprehensive statistics:
+Example 11 - Find instrumentations by type:
+User: "Show me all level instruments in the system"
+Assistant: I'll find all instrumentations of type 'level'.
+Tool call: get_instrumentations_by_type("level")
+
+Example 12 - Get comprehensive statistics:
 User: "Give me detailed statistics about the water system including type distributions"
 Assistant: I'll get comprehensive statistics about the hierarchy.
 Tool call: get_detailed_statistics()
 
-Example 12 - Case-sensitive search:
+Example 13 - Case-sensitive search:
 User: "Find components with exactly 'Source' (capital S) in their name"
 Assistant: I'll perform a case-sensitive search for 'Source'.
 Tool call: search_hierarchy("Source", True)
 
-You should use these tools to answer the user's questions about the water system hierarchy.
-You should always answer in a concise manner and only use the tools if necessary.
-When giving answers, refer to components by their ID and name and type
-If you don't know the answer, just say you don't know. Do not try to make up an answer.
+
 """
