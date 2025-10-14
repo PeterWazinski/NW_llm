@@ -205,7 +205,12 @@ def display_chat_history():
     """Display the chat history messages"""
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+            # Display the main content
+            st.markdown(message["content"], unsafe_allow_html=True)
+            
+            # Display footer if it exists (only for assistant messages)
+            if message["role"] == "assistant" and "footer" in message:
+                st.markdown(message["footer"], unsafe_allow_html=True)
 
 def log_execution_info(user_input, execution_time, tools_called, response_length):
     """Log execution information to console"""
@@ -216,11 +221,9 @@ def log_execution_info(user_input, execution_time, tools_called, response_length
     print(f"🔧 Tools called: {tools_called}")
     print("-" * 50)
 
-def display_execution_footer(execution_time, tools_called):
-    """Display execution information footer in the chat"""
+def generate_execution_footer(execution_time, tools_called):
+    """Generate execution information footer HTML"""
     if execution_time > 0 or tools_called:
-        st.markdown("---")
-        
         # Format tools called
         if tools_called:
             tools_text = ", ".join(tools_called)
@@ -228,15 +231,36 @@ def display_execution_footer(execution_time, tools_called):
         else:
             tools_info = f"🔧 <strong>Tools used:</strong> None"
         
+        # Get server information from global command line args
+        cmd_args = CMD_LINE_ARGS
+        if cmd_args['run_locally'] is True:
+            server_info = "🏠 <strong>Server:</strong> Local"
+        elif cmd_args['run_locally'] is False:
+            server_url = cmd_args['ollama_url'] or "Remote (default)"
+            server_info = f"🌐 <strong>Server:</strong> {server_url}"
+        else:
+            server_info = "⚙️ <strong>Server:</strong> Auto-detected"
+        
         # Create footer message
         footer_message = f"""
+
+---
+
 <div style='font-size: 0.85em; color: #666; background-color: #f8f9fa; padding: 8px; border-radius: 5px; margin-top: 10px;'>
     🤖 <strong>Model:</strong> {st.session_state.selected_model}<br>
+    {server_info}<br>
     ⏱️ <strong>Execution time:</strong> {execution_time:.2f} seconds<br>
     {tools_info}
 </div>
 """
-        st.markdown(footer_message, unsafe_allow_html=True)
+        return footer_message
+    return ""
+
+def display_execution_footer(execution_time, tools_called):
+    """Display execution information footer in the chat"""
+    footer_html = generate_execution_footer(execution_time, tools_called)
+    if footer_html:
+        st.markdown(footer_html, unsafe_allow_html=True)
 
 def process_agent_response(agent, user_input):
     """Process the agent response and handle the complete interaction"""
@@ -263,14 +287,22 @@ def process_agent_response(agent, user_input):
     # Log execution information to console
     log_execution_info(user_input, execution_time, tools_called, len(response_content))
     
-    # Display the response
-    st.markdown(response_content)
+    # Generate footer HTML
+    footer_html = generate_execution_footer(execution_time, tools_called)
     
-    # Display execution footer
-    display_execution_footer(execution_time, tools_called)
+    # Display the response content
+    st.markdown(response_content, unsafe_allow_html=True)
     
-    # Add assistant response to session state
-    st.session_state.messages.append({"role": "assistant", "content": response_content})
+    # Display the footer
+    if footer_html:
+        st.markdown(footer_html, unsafe_allow_html=True)
+    
+    # Add assistant response to session state (content and footer stored separately)
+    message_data = {"role": "assistant", "content": response_content}
+    if footer_html:
+        message_data["footer"] = footer_html
+    
+    st.session_state.messages.append(message_data)
 
 def handle_chat_input(agent):
     """Handle user input and generate assistant response"""
