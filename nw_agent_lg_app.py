@@ -54,6 +54,7 @@ def parse_command_line_args():
     parser.add_argument('--remote', action='store_true', help='Use remote Ollama server')
     parser.add_argument('--ollama-url', type=str, help='Custom Ollama server URL')
     parser.add_argument('--model', type=str, default="qwen2.5:7b-instruct-q4_K_M", help='LLM model to use')
+    parser.add_argument('--intercept-http', action='store_true', help='Enable HTTP request interception and logging')
     
     # Parse only known args to avoid conflicts with Streamlit's args
     args, unknown = parser.parse_known_args()
@@ -71,13 +72,14 @@ def parse_command_line_args():
     return {
         'run_locally': run_locally,
         'ollama_url': args.ollama_url,
-        'model': args.model
+        'model': args.model,
+        'enable_http_interception': args.intercept_http
     }
 
 @st.cache_resource
-def get_water_agent(llm_model: str = "qwen2.5:7b-instruct-q4_K_M", run_locally: bool = None, ollama_url: str = None):
+def get_water_agent(llm_model: str = "qwen2.5:7b-instruct-q4_K_M", run_locally: bool = None, ollama_url: str = None, enable_http_interception: bool = False):
     """Get or create the WaterAgentLangGraph instance with specified configuration"""
-    return WaterAgentLangGraph(llm_model=llm_model, run_locally=run_locally, ollama_base_url=ollama_url)
+    return WaterAgentLangGraph(llm_model=llm_model, run_locally=run_locally, ollama_base_url=ollama_url, enable_http_interception=enable_http_interception)
 
 def init_app():
     """Initialize the Streamlit app with title, agent, and session state"""
@@ -100,7 +102,8 @@ def init_app():
         agent = get_water_agent(
             llm_model=model_to_use,
             run_locally=cmd_args['run_locally'],
-            ollama_url=cmd_args['ollama_url']
+            ollama_url=cmd_args['ollama_url'],
+            enable_http_interception=cmd_args['enable_http_interception']
         )
     except Exception as e:
         st.error(f"Error initializing WaterAgentLangGraph: {e}")
@@ -170,7 +173,8 @@ def render_llm_selection_section(agent):
                     new_agent = get_water_agent(
                         llm_model=selected_model,
                         run_locally=cmd_args['run_locally'],
-                        ollama_url=cmd_args['ollama_url']
+                        ollama_url=cmd_args['ollama_url'],
+                        enable_http_interception=cmd_args['enable_http_interception']
                     )
                     
                     # Update session state

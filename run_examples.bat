@@ -32,5 +32,7 @@ echo    - --remote uses the default remote server or --ollama-url if specified
 echo    - --model specifies which LLM model to use
 echo    - Without flags, the app uses the class default (currently: run_ollama_locally = True)
 echo.
+echo Starting Streamlit app... with http interception enabled...
+echo streamlit run nw_agent_lg_app.py -- --intercept-http --remote
 
 pause

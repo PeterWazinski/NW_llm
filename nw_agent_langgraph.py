@@ -12,8 +12,18 @@ import os
 from Guwahati import Guwahati
 from nw_water_tools import NWWaterTools
 
+# Import our HTTP interception tools
+try:
+    from ollama_interceptor import InterceptingChatOllama, setup_global_httpx_interception
+    INTERCEPTION_AVAILABLE = True
+    print("🔍 HTTP interception tools loaded successfully")
+except ImportError:
+    INTERCEPTION_AVAILABLE = False
+    print("⚠️ HTTP interception tools not available")
+
 # "C:\Users\i09300076\OneDrive - Endress+Hauser\DEV\Python3-heroku\NW_llm\ollama_env\Scripts\activate.bat"
 # streamlit run nw_agent_lg_app.py   
+# streamlit run nw_agent_lg_app.py -- --remote
 
 # Define the state structure for LangGraph
 class AgentState(TypedDict):
@@ -30,10 +40,11 @@ class WaterAgentLangGraph:
     remote_ollama_model = "llama3.1:8b"  # Remote model
     remote_ollama_base_url = "http://10.58.145.210:11434"  # Remote server URL
 
-    def __init__(self, ollama_base_url: str = None, llm_model: str = "qwen2.5:7b-instruct-q4_K_M", run_locally: bool = None):
+    def __init__(self, ollama_base_url: str = None, llm_model: str = "qwen2.5:7b-instruct-q4_K_M", run_locally: bool = None, enable_http_interception: bool = False):
         self.model = None
         self.tools = None
         self.app = None
+        self.enable_http_interception = enable_http_interception
         
         # Allow runtime override of the class variable
         if run_locally is not None:
@@ -113,20 +124,54 @@ class WaterAgentLangGraph:
         try:
             self.tools = self.water_tools.create_tools()
             
-            # Initialize ChatOllama with appropriate configuration
-            if self.run_ollama_locally:
-                # Local Ollama server (default configuration)
-                self.model = ChatOllama(
-                    model=self.current_model, 
-                    validate_model_on_init=True
-                )
+            # Initialize ChatOllama with appropriate configuration and optional HTTP interception
+            if self.enable_http_interception and INTERCEPTION_AVAILABLE:
+                print("🔍 Enabling HTTP request interception for Ollama...")
+                try:
+                    if self.run_ollama_locally:
+                        # Local Ollama server with interception - use default local URL
+                        self.model = InterceptingChatOllama(
+                            model=self.current_model,
+                            base_url="http://localhost:11434",
+                            validate_model_on_init=True
+                        )
+                    else:
+                        # Remote Ollama server with interception
+                        self.model = InterceptingChatOllama(
+                            model=self.current_model, 
+                            base_url=self.ollama_base_url,
+                            validate_model_on_init=True
+                        )
+                except Exception as e:
+                    print(f"⚠️ Failed to initialize HTTP interception: {e}")
+                    print("🔄 Falling back to standard ChatOllama...")
+                    # Fallback to standard ChatOllama
+                    if self.run_ollama_locally:
+                        self.model = ChatOllama(
+                            model=self.current_model, 
+                            validate_model_on_init=True
+                        )
+                    else:
+                        self.model = ChatOllama(
+                            model=self.current_model, 
+                            base_url=self.ollama_base_url,
+                            validate_model_on_init=True
+                        )
             else:
-                # Remote Ollama server
-                self.model = ChatOllama(
-                    model=self.current_model, 
-                    base_url=self.ollama_base_url,
-                    validate_model_on_init=True
-                )
+                # Standard ChatOllama without interception
+                if self.run_ollama_locally:
+                    # Local Ollama server (default configuration)
+                    self.model = ChatOllama(
+                        model=self.current_model, 
+                        validate_model_on_init=True
+                    )
+                else:
+                    # Remote Ollama server
+                    self.model = ChatOllama(
+                        model=self.current_model, 
+                        base_url=self.ollama_base_url,
+                        validate_model_on_init=True
+                    )
 
 
             
