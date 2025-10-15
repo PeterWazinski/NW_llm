@@ -24,6 +24,7 @@ except ImportError:
 # "C:\Users\i09300076\OneDrive - Endress+Hauser\DEV\Python3-heroku\NW_llm\ollama_env\Scripts\activate.bat"
 # streamlit run nw_agent_lg_app.py   
 # streamlit run nw_agent_lg_app.py -- --remote
+# streamlit run nw_agent_lg_app.py -- --intercept-http --remote
 
 # Define the state structure for LangGraph
 class AgentState(TypedDict):
