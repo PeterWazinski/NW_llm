@@ -89,12 +89,31 @@ class NWWaterTools:
         @tool
         @self.time_tool_execution
         def get_all_instrumentations():
-            """Get all instrumentation/instrument nodes in the hierarchy.
+            """Get all instrumentation/instrument nodes in the hierarchy. IMPORTANT: After calling this tool, you MUST display all the instrumentations with their details to the user. Do not just acknowledge the call - show the actual data.
             
             Returns:
-                list: All instrumentation nodes with their details (id, name/tag, type, primary_val_key, value_keys)
+                list: All instrumentation nodes with their details (id, name/tag, type, primary_val_key, value_keys, thresholds)
             """
-            return self.nw_hierarchy.all_instrumentations
+            # Convert nw_instrument objects to dictionaries for better display
+            instrumentations = []
+            for inst in self.nw_hierarchy.all_instrumentations:
+                # Get threshold information - check if thresholds exist and have values
+                thresholds_info = "No"
+                if hasattr(inst, 'thresholds') and inst.thresholds:
+                    thresholds_info = f"Yes ({len(inst.thresholds)} threshold(s))"
+                
+                inst_dict = {
+                    'id': inst.id,
+                    'name': inst.name,
+                    'tag': inst.tag,
+                    'type': inst.type,
+                    'primary_val_key': getattr(inst, 'primary_val_key', None),
+                    'value_keys': getattr(inst, 'value_keys', []),
+                    'has_thresholds': thresholds_info,
+                    'thresholds_detail': getattr(inst, 'thresholds', [])
+                }
+                instrumentations.append(inst_dict)
+            return instrumentations
         
         @tool
         @self.time_tool_execution
@@ -434,15 +453,30 @@ When giving answers, refer to components by their ID and name and type
 If you don't know the answer, just say you don't know. Do not try to make up an answer.
 
 CRITICAL INSTRUCTION FOR PROCESSING TOOL RESULTS:
-When tools return lists or large datasets, you MUST analyze and filter the results to answer the user's specific question. 
-DO NOT simply return the entire list. Instead:
-1. Understand what the user is specifically asking for
-2. Analyze the tool results to identify relevant items
-3. Present only the items that directly answer the user's question
-4. Summarize and format the results in a clear, organized manner
-5. If the list is long, consider grouping, categorizing, or highlighting the most relevant items
+After calling any tool, you MUST display the actual results to the user. NEVER just acknowledge that you called a tool without showing the results.
 
-ADVANCED FILTERING STRATEGIES:
+When tools return lists or large datasets:
+1. ALWAYS show the actual data returned by the tool
+2. If the user asks to "list all instrumentations" - DISPLAY ALL INSTRUMENTATIONS with their details
+3. If the user asks for specific information - DISPLAY the relevant items with full details
+4. Format the results clearly using tables, bullet points, or structured lists
+5. Include key details like ID, name, type, and other relevant attributes
+6. If the list is very long (>20 items), show a sample and mention the total count
+
+MANDATORY RESULT DISPLAY RULES:
+- NEVER say "Here are the instrumentations" without actually showing them
+- NEVER say "I've retrieved the data" without displaying it
+- ALWAYS include actual data in your response
+- Use clear formatting (markdown tables, lists, etc.)
+- Show key attributes for each item (ID, name, type, etc.)
+
+CRITICAL DISTINCTION - LIST ALL vs FILTER SPECIFIC:
+- When user says "list all instrumentations" → USE get_all_instrumentations() and SHOW ALL 14 instruments
+- When user says "show me pump instruments" → USE get_instrumentations_by_type("pump") 
+- When user says "instruments with criteria X" → USE filter_instrumentations_by_criteria()
+- DO NOT filter results unless user specifically asks for filtering
+
+ADVANCED FILTERING STRATEGIES (ONLY when user asks for specific filtering):
 - Use filter_instrumentations_by_criteria for complex filtering needs
 - When user asks for "X in Y", first get X, then analyze which ones are in Y
 - For questions about specific attributes (thresholds, value_keys), examine each item's properties
@@ -497,11 +531,11 @@ When processing user requests, follow this pattern:
 4. **Filter and present**: Extract only relevant information and present it clearly
 
 Example reasoning process:
-User asks: "Which pump instruments in the Storage module don't have thresholds?"
-Step 1: I need pump instruments + check module location + check threshold status
-Step 2: Use get_instrumentations_by_type("pump") first
-Step 3: Analyze results to find which are in Storage module and lack thresholds
-Step 4: Present only those specific instruments with clear summary
+User asks: "List all instrumentations" 
+Step 1: User wants complete list, not filtered
+Step 2: Use get_all_instrumentations() 
+Step 3: Display ALL instrumentations in formatted table
+Step 4: Do NOT filter - show complete list with summary
 
 When using the tools below, you must provide the ID of the component as a string, e.g. all applications for location with ID "1". 
 All these tools also accept names instead of IDs:
@@ -512,81 +546,104 @@ All these tools also accept names instead of IDs:
 
 Examples of how to use the tools:
 
-Example 1 - Query by ID:
+Example 1 - LIST ALL INSTRUMENTATIONS (most important):
+User: "List all instrumentations"
+Assistant: I'll retrieve all instrumentations from the hierarchy and display them for you.
+Tool call: get_all_instrumentations()
+[After tool execution, display ALL instrumentations in a formatted table - DO NOT filter]
+
+Example 2 - Query by ID:
 User: "What instruments are in module 100?"
 Assistant: I'll find the instruments for module 100.
 Tool call: get_instruments_for_module("100")
 
-Example 2 - Query by name:
+Example 3 - Query by name:
 User: "What instruments are in the Source module?"
 Assistant: I'll find the instruments for the Source module.
 Tool call: get_instruments_for_module("Source")
 
-Example 3 - Query by application name:
+Example 4 - Query by application name:
 User: "What modules are in the Abstraction application?"
 Assistant: I'll find the modules for the Abstraction application.
 Tool call: get_modules_for_application("Abstraction")
 
-Example 4 - Query by location name:
+Example 5 - Query by location name:
 User: "What applications are in Nijeshwari PWSS?"
 Assistant: I'll find the applications for Nijeshwari PWSS location.
 Tool call: get_applications_for_location("Nijeshwari PWSS")
 
-Example 5 - Query by instrument name:
+Example 6 - Query by instrument name:
 User: "What assets are connected to the Borewell level instrument?"
 Assistant: I'll find the assets for the Borewell level instrument.
 Tool call: get_assets_for_instrument("Borewell level")
 
-Example 6 - Request for structured summary:
+Example 7 - Request for structured summary:
 User: "Give me a summary of the water system hierarchy"
 Assistant: I'll get a structured summary of the hierarchy.
 Tool call: get_md_summary()
 
-Example 7 - Request for detailed hierarchy view:
+Example 8 - Request for detailed hierarchy view:
 User: "Show me the complete hierarchy structure in a structured format"
 Assistant: I'll get the complete hierarchy for better analysis.
 Tool call: pprint_hierarchy()
 
-Example 8 - List all instrumentations that do not have thresholds defined:
+Example 9 - List all instrumentations that do not have thresholds defined:
 User: "Show me all instrumentations that do not have thresholds defined"
 Assistant: I'll get the complete list of instrumentations. then I can filter them by searching for those with an empty thresholds list.
 Tool call: get_all_instrumentations()
 
-Example 9 - Search for components by name:
-User: "Find all components with 'pump' in their name"
-Assistant: I'll search the hierarchy for components containing 'pump' in their name.
-Tool call: search_hierarchy("pump", False)
+Example 10 - Search for components by name:
+User: "Find all components with 'level' in their name"
+Assistant: I'll search the hierarchy for components containing 'level' in their name.
+Tool call: search_hierarchy("level", False)
 
-Example 10 - Find instrumentations by value key:
+Example 11 - Find instrumentations by value key:
 User: "Which instruments measure flow rate?"
 Assistant: I'll find all instrumentations that have 'flow_rate' as a value key.
 Tool call: get_instrumentations_by_value_key("flow_rate")
 
-Example 11 - Find instrumentations by type:
+Example 12 - Find instrumentations by type:
 User: "Show me all level instruments in the system"
 Assistant: I'll find all instrumentations of type 'level'.
 Tool call: get_instrumentations_by_type("level")
 
-Example 12 - Get comprehensive statistics:
+Example 13 - Get comprehensive statistics:
 User: "Give me detailed statistics about the water system including type distributions"
 Assistant: I'll get comprehensive statistics about the hierarchy.
 Tool call: get_detailed_statistics()
 
-Example 13 - Case-sensitive search:
+Example 14 - Case-sensitive search:
 User: "Find components with exactly 'Source' (capital S) in their name"
 Assistant: I'll perform a case-sensitive search for 'Source'.
 Tool call: search_hierarchy("Source", True)
 
-Example 14 - Filtering results intelligently:
-User: "Show me only the pump instruments that don't have thresholds defined"
-Assistant: I'll use the filter tool to find pump instruments without thresholds.
-Tool call: filter_instrumentations_by_criteria("pump instruments without thresholds")
+Example 15 - Filtering results intelligently (ONLY when user asks for specific filtering):
+User: "Show me only the instruments that don't have thresholds defined"
+Assistant: I'll use the filter tool to find instruments without thresholds.
+Tool call: filter_instrumentations_by_criteria("instruments without thresholds")
 
-Example 15 - Analyzing tool results properly:
+Example 16 - Analyzing tool results properly:
 User: "Which level instruments are in the Source module?"
 Assistant: I'll first get all level instruments, then analyze which ones are in the Source module.
 Tool call 1: get_instrumentations_by_type("level")
 [After getting results, I'll analyze them to identify which ones belong to the Source module and present only those relevant instruments]
+
+REMEMBER: When user says "List all instrumentations" → ALWAYS use get_all_instrumentations() and show ALL instruments!
+
+| ID | Name/Tag | Type | Primary Key | Value Keys | Thresholds |
+|----|----------|------|-------------|------------|------------|
+| 69 | Borewell level | level | groundwater_level | groundwater_level | No |
+| 70 | Power Mains | power | total_kwh | current, power_factor, total_kw, ... | No |
+| 71 | ABS-Pump | pump | abs_pump_on | abs_pump_cmd, abs_pump_current, ... | Yes (2 threshold(s)) |
+
+**Total: 14 instrumentations found in the system**
+
+**Summary by Type:**
+- Level instruments: 2
+- Power instruments: 3  
+- Pump instruments: 4
+- Flow instruments: 3
+- Analysis instruments: 2
 
 IMPORTANT RESULT PROCESSING RULES:
 - When you get a list from a tool, analyze it to extract only what the user asked for
